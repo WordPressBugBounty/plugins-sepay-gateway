@@ -3,8 +3,8 @@
  - Contributors: sepayteam
  - Tags: woocommerce, payment gateway, vietqr, ngan hang, thanh toan
  - Requires WooCommerce at least: 2.1
- - Stable Tag: 1.1.5
- - Version: 1.1.5
+ - Stable Tag: 1.1.6
+ - Version: 1.1.6
  - Tested up to: 6.6
  - Requires at least: 5.6
  - Requires PHP: 7.2

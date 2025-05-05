@@ -19,7 +19,7 @@ final class WC_SePay_Blocks_Support extends AbstractPaymentMethodType
         return filter_var($this->get_setting('enabled', false), FILTER_VALIDATE_BOOLEAN);
     }
 
-    public function get_payment_method_script_handles(): array
+    public function get_payment_method_script_handles()
     {
         $script_path = plugin_dir_path(__DIR__) . 'assets/js/block/checkout.js';
 
@@ -46,7 +46,7 @@ final class WC_SePay_Blocks_Support extends AbstractPaymentMethodType
         return ['wc-sepay-blocks-integration'];
     }
 
-    public function get_payment_method_data(): array
+    public function get_payment_method_data()
     {
         return [
             'title' => $this->get_setting('title'),

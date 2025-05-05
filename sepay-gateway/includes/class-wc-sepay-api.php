@@ -233,12 +233,12 @@ class WC_SePay_API
         return $access_token;
     }
 
-    public function get_callback_url(): string
+    public function get_callback_url()
     {
         return add_query_arg('wc-api', 'wc_sepay_oauth', home_url('/'));
     }
 
-    public function is_connected(): bool
+    public function is_connected()
     {
         return !empty(get_option('wc_sepay_access_token')) && !empty(get_option('wc_sepay_refresh_token'));
     }
@@ -409,7 +409,7 @@ class WC_SePay_API
         delete_transient('wc_sepay_bank_accounts');
     }
 
-    public function is_required_sub_account($bank_account_id, $bank_accounts = null): bool
+    public function is_required_sub_account($bank_account_id, $bank_accounts = null)
     {
         $required_sub_account_banks = ['BIDV', 'OCB', 'MSB', 'KienLongBank'];
         $bank_accounts = $bank_accounts ?? $this->get_bank_accounts();
@@ -422,7 +422,8 @@ class WC_SePay_API
             return false;
         }
 
-        $key = array_key_first($bank_account);
+        reset($bank_account);
+        $key = key($bank_account);
 
         return in_array($bank_account[$key]['bank']['short_name'], $required_sub_account_banks);
     }

@@ -153,7 +153,7 @@ class WC_Gateway_SePay extends WC_Payment_Gateway
         return $this->cached_user_info;
     }
 
-    public function process_admin_options(): bool
+    public function process_admin_options()
     {
         if (! isset($_POST['_wpnonce']) || ! wp_verify_nonce(sanitize_key($_POST['_wpnonce']), 'woocommerce-settings')) {
             WC_Admin_Settings::add_error('Nonce verification failed');
@@ -183,7 +183,7 @@ class WC_Gateway_SePay extends WC_Payment_Gateway
         }
 
         $current_settings = get_option('woocommerce_sepay_settings', []);
-        $current_bank_account_id = $current_settings['bank_account'] ?? null;
+        $current_bank_account_id = isset($current_settings['bank_account']) ? $current_settings['bank_account'] : null;
 
         if ($current_bank_account_id !== $bank_account_id) {
             $this->update_sepay_webhook($bank_account_id);
@@ -238,7 +238,7 @@ class WC_Gateway_SePay extends WC_Payment_Gateway
         return parent::process_admin_options();
     }
 
-    private function update_sepay_webhook($bank_account_id): bool
+    private function update_sepay_webhook($bank_account_id)
     {
         $webhook_id = get_option('wc_sepay_webhook_id');
 
@@ -527,7 +527,7 @@ class WC_Gateway_SePay extends WC_Payment_Gateway
         );
     }
 
-    public function getWcOrderStatuses(): array
+    public function getWcOrderStatuses()
     {
         $statuses = wc_get_order_statuses();
         $result = [];
@@ -564,7 +564,7 @@ class WC_Gateway_SePay extends WC_Payment_Gateway
             $last_connected_at = get_option('wc_sepay_last_connected_at', null);
 
             if ($last_connected_at) {
-                $last_connected_at = wp_date('d/m/Y H:i:s', strtotime($last_connected_at), new DateTimeZone('Asia/Ho_Chi_Minh'));
+                $last_connected_at = date_i18n('d/m/Y H:i:s', strtotime($last_connected_at));
             }
 
             $reconnect_url = wp_nonce_url(
@@ -599,7 +599,7 @@ class WC_Gateway_SePay extends WC_Payment_Gateway
         }
     }
 
-    public function process_payment($order_id): array
+    public function process_payment($order_id)
     {
         $order = wc_get_order($order_id);
         $this->update_order_status_and_clear_cart($order);
@@ -623,7 +623,7 @@ class WC_Gateway_SePay extends WC_Payment_Gateway
 
             $bank_account_id = $this->get_option('bank_account');
             $bank_account = $this->api->get_bank_account($bank_account_id);
-            $account_number = $this->get_option('sub_account') ?: $bank_account['account_number'];
+            $account_number = $this->get_option('sub_account') ? $this->get_option('sub_account') : $bank_account['account_number'];
         }
 
         if ($this->should_skip_thankyou_page($order)) {
@@ -635,7 +635,7 @@ class WC_Gateway_SePay extends WC_Payment_Gateway
             $account_number,
             $this->bank_bin,
             $order->get_total(),
-            $remark,
+            $remark
         );
 
         $bank_logo_url = $this->bank_logo_url;
@@ -658,7 +658,7 @@ class WC_Gateway_SePay extends WC_Payment_Gateway
         wp_localize_script('sepay_script', 'sepay_vars', [
             'ajax_url' => esc_url(admin_url('admin-ajax.php')),
             'order_code' => $this->get_option('pay_code_prefix') . $order_id,
-            'account_number' => $this->api->is_connected() ? ($this->get_option('sub_account') ?: $this->cached_bank_account_data['account_number']) : $this->get_option('bank_account_number'),
+            'account_number' => $this->api->is_connected() ? ($this->get_option('sub_account') ? $this->get_option('sub_account') : $this->cached_bank_account_data['account_number']) : $this->get_option('bank_account_number'),
             'remark' => $this->get_remark($order_id),
             'amount' => $order->get_total(),
             'order_nonce' => wp_create_nonce('submit_order'),
@@ -705,7 +705,7 @@ class WC_Gateway_SePay extends WC_Payment_Gateway
         exit;
     }
 
-    private function build_bank_account_options(): array
+    private function build_bank_account_options()
     {
         $options = [];
         foreach ($this->bank_accounts as $account) {
@@ -729,13 +729,12 @@ class WC_Gateway_SePay extends WC_Payment_Gateway
         $bank_account_data = $this->get_bank_account_data();
         if ($bank_account_data) {
             $this->displayed_bank_name = $this->get_display_bank_name($bank_account_data['bank']);
-            // Set other properties that depend on bank account data
             $this->bank_bin = $bank_account_data['bank']['bin'];
             $this->bank_logo_url = $bank_account_data['bank']['logo_url'];
         }
     }
 
-    private function get_display_bank_name(array $bank): string
+    private function get_display_bank_name($bank): string
     {
         switch ($this->bank_name_display_type) {
             case 'full_name':
@@ -748,7 +747,7 @@ class WC_Gateway_SePay extends WC_Payment_Gateway
         }
     }
 
-    private function should_skip_thankyou_page($order): bool
+    private function should_skip_thankyou_page($order)
     {
         return $order->get_payment_method() !== $this->id ||
             $order->has_status(['processing', 'completed']);
