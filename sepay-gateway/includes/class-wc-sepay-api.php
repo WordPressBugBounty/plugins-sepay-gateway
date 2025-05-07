@@ -130,53 +130,108 @@ class WC_SePay_API
         }
     }
 
+    private function log_error($message, $context = []) {
+        if (function_exists('wc_get_logger')) {
+            $logger = wc_get_logger();
+            $logger->error($message, [
+                'source' => 'sepay',
+                'context' => $context
+            ]);
+        }
+    }
+
     public function make_request($endpoint, $method = 'GET', $data = null)
     {
-        try {
-            $access_token = $this->get_access_token();
-        } catch (Exception $e) {
-            return null;
-        }
+        $max_retries = 3;
+        $retry_count = 0;
+        $retry_delay = 1; // seconds
 
-        if (!$access_token) {
-            return null;
-        }
-
-        $args = [
-            'method' => $method,
-            'headers' => [
-                'Authorization' => 'Bearer ' . $access_token,
-                'Content-Type' => 'application/json',
-            ],
-            'sslverify' => false,
-        ];
-
-        if ($data !== null && $method !== 'GET') {
-            $args['body'] = json_encode($data);
-        } else if ($data !== null && $method === 'GET') {
-            $endpoint .= '?' . http_build_query($data);
-        }
-
-        $url = SEPAY_API_URL . '/api/v1/' . $endpoint;
-
-        $response = wp_remote_request($url, $args);
-
-        if (is_wp_error($response)) {
-            throw new Exception(esc_html($response->get_error_message()));
-        }
-
-        $data = json_decode(wp_remote_retrieve_body($response), true);
-
-        if (isset($data['error']) && $data['error'] === 'access_denied') {
+        while ($retry_count < $max_retries) {
             try {
-                $this->refresh_token();
+                $access_token = $this->get_access_token();
             } catch (Exception $e) {
+                $this->log_error('Failed to get access token', [
+                    'error' => $e->getMessage(),
+                    'retry_count' => $retry_count
+                ]);
+                if ($retry_count === $max_retries - 1) {
+                    return null;
+                }
+                $retry_count++;
+                sleep($retry_delay);
+                continue;
+            }
+
+            if (!$access_token) {
+                $this->log_error('No access token available');
                 return null;
             }
-            return $this->make_request($endpoint, $method, $data);
+
+            $args = [
+                'method' => $method,
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $access_token,
+                    'Content-Type' => 'application/json',
+                ],
+                'sslverify' => false,
+                'timeout' => 30,
+            ];
+
+            if ($data !== null && $method !== 'GET') {
+                $args['body'] = json_encode($data);
+            } else if ($data !== null && $method === 'GET') {
+                $endpoint .= '?' . http_build_query($data);
+            }
+
+            $url = SEPAY_API_URL . '/api/v1/' . $endpoint;
+
+            $response = wp_remote_request($url, $args);
+
+            if (is_wp_error($response)) {
+                $this->log_error('API request failed', [
+                    'error' => $response->get_error_message(),
+                    'endpoint' => $endpoint,
+                    'retry_count' => $retry_count
+                ]);
+                if ($retry_count === $max_retries - 1) {
+                    throw new Exception(esc_html($response->get_error_message()));
+                }
+                $retry_count++;
+                sleep($retry_delay);
+                continue;
+            }
+
+            $data = json_decode(wp_remote_retrieve_body($response), true);
+
+            if (isset($data['error']) && $data['error'] === 'access_denied') {
+                $this->log_error('Access denied, attempting to refresh token', [
+                    'endpoint' => $endpoint
+                ]);
+                try {
+                    $this->refresh_token();
+                } catch (Exception $e) {
+                    $this->log_error('Failed to refresh token', [
+                        'error' => $e->getMessage(),
+                        'retry_count' => $retry_count
+                    ]);
+                    if ($retry_count === $max_retries - 1) {
+                        return null;
+                    }
+                    $retry_count++;
+                    sleep($retry_delay);
+                    continue;
+                }
+                return $this->make_request($endpoint, $method, $data);
+            }
+
+            return $data;
         }
 
-        return $data;
+        $this->log_error('Max retries reached for API request', [
+            'endpoint' => $endpoint,
+            'method' => $method
+        ]);
+        return null;
     }
 
     public function refresh_token()
@@ -220,13 +275,13 @@ class WC_SePay_API
     public function get_access_token()
     {
         $access_token = get_option('wc_sepay_access_token');
-        $token_expires = get_option('wc_sepay_token_expires');
+        $token_expires = (int) get_option('wc_sepay_token_expires');
 
         if (empty($access_token)) {
             throw new Exception('Not connected to SePay');
         }
 
-        if ((int) $token_expires < time()) {
+        if ($token_expires < time() + 300) {
             $access_token = $this->refresh_token();
         }
 
@@ -327,6 +382,9 @@ class WC_SePay_API
         if (isset($response['status']) && $response['status'] === 'success') {
             update_option('wc_sepay_webhook_id', $response['data']['id'] ?? $webhook_id ?? null);
             update_option('wc_sepay_webhook_api_key', $api_key);
+            $settings = get_option('woocommerce_sepay_settings', []);
+            $settings['api_key'] = $api_key;
+            update_option('woocommerce_sepay_settings', $settings);
         }
 
         return $response;
@@ -426,5 +484,36 @@ class WC_SePay_API
         $key = key($bank_account);
 
         return in_array($bank_account[$key]['bank']['short_name'], $required_sub_account_banks);
+    }
+
+    public function check_connection_health() {
+        try {
+            $response = $this->make_request('me');
+            if ($response && isset($response['data'])) {
+                return true;
+            }
+            return false;
+        } catch (Exception $e) {
+            $this->log_error('Health check failed', [
+                'error' => $e->getMessage()
+            ]);
+            return false;
+        }
+    }
+
+    public function get_connection_status() {
+        $access_token = get_option('wc_sepay_access_token');
+        $refresh_token = get_option('wc_sepay_refresh_token');
+        $token_expires = get_option('wc_sepay_token_expires');
+        $last_connected_at = get_option('wc_sepay_last_connected_at');
+
+        $status = [
+            'is_connected' => !empty($access_token) && !empty($refresh_token),
+            'token_expires_in' => $token_expires ? ($token_expires - time()) : 0,
+            'last_connected_at' => $last_connected_at,
+            'health_check' => $this->check_connection_health()
+        ];
+
+        return $status;
     }
 }

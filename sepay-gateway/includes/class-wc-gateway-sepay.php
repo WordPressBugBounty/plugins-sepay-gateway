@@ -42,26 +42,7 @@ class WC_Gateway_SePay extends WC_Payment_Gateway
         $this->description = $this->get_option('description');
         $this->bank_name_display_type = $this->get_option('show_bank_name');
 
-        $bank_data = array(
-            'vietcombank' => array('bin' => '970436', 'code' => 'VCB', 'short_name' => 'Vietcombank', 'full_name' => 'Ngân hàng TMCP Ngoại Thương Việt Nam'),
-            'vpbank' => array('bin' => '970432', 'code' => 'VPB', 'short_name' => 'VPBank', 'full_name' => 'Ngân hàng TMCP Việt Nam Thịnh Vượng'),
-            'acb' => array('bin' => '970416', 'code' => 'ACB', 'short_name' => 'ACB', 'full_name' => 'Ngân hàng TMCP Á Châu'),
-            'sacombank' => array('bin' => '970403', 'code' => 'STB', 'short_name' => 'Sacombank', 'full_name' => 'Ngân hàng TMCP Sài Gòn Thương Tín'),
-            'hdbank' => array('bin' => '970437', 'code' => 'HDB', 'short_name' => 'HDBank', 'full_name' => 'Ngân hàng TMCP Phát triển Thành phố Hồ Chí Minh'),
-            'vietinbank' => array('bin' => '970415', 'code' => 'ICB', 'short_name' => 'VietinBank', 'full_name' => 'Ngân hàng TMCP Công thương Việt Nam'),
-            'techcombank' => array('bin' => '970407', 'code' => 'TCB', 'short_name' => 'Techcombank', 'full_name' => 'Ngân hàng TMCP Kỹ thương Việt Nam'),
-            'mbbank' => array('bin' => '970422', 'code' => 'MB', 'short_name' => 'MBBank', 'full_name' => 'Ngân hàng TMCP Quân đội'),
-            'bidv' => array('bin' => '970418', 'code' => 'BIDV', 'short_name' => 'BIDV', 'full_name' => 'Ngân hàng TMCP Đầu tư và Phát triển Việt Nam'),
-            'msb' => array('bin' => '970426', 'code' => 'MSB', 'short_name' => 'MSB', 'full_name' => 'Ngân hàng TMCP Hàng Hải Việt Nam'),
-            'shinhanbank' => array('bin' => '970424', 'code' => 'SHBVN', 'short_name' => 'ShinhanBank', 'full_name' => 'Ngân hàng TNHH MTV Shinhan Việt Nam'),
-            'tpbank' => array('bin' => '970423', 'code' => 'TPB', 'short_name' => 'TPBank', 'full_name' => 'Ngân hàng TMCP Tiên Phong'),
-            'eximbank' => array('bin' => '970431', 'code' => 'EIB', 'short_name' => 'Eximbank', 'full_name' => 'Ngân hàng TMCP Xuất Nhập khẩu Việt Nam'),
-            'vib' => array('bin' => '970441', 'code' => 'VIB', 'short_name' => 'VIB', 'full_name' => 'Ngân hàng TMCP Quốc tế Việt Nam'),
-            'agribank' => array('bin' => '970405', 'code' => 'VBA', 'short_name' => 'Agribank', 'full_name' => 'Ngân hàng Nông nghiệp và Phát triển Nông thôn Việt Nam'),
-            'publicbank' => array('bin' => '970439', 'code' => 'PBVN', 'short_name' => 'PublicBank', 'full_name' => 'Ngân hàng TNHH MTV Public Việt Nam'),
-            'kienlongbank' =>  array('bin' => '970452', 'code' => 'KLB', 'short_name' => 'KienLongBank', 'full_name' => 'Ngân hàng TMCP Kiên Long'),
-            'ocb' => array('bin' => '970448', 'code' => 'OCB', 'short_name' => 'OCB', 'full_name' => 'Ngân hàng TMCP Phương Đông'),
-        );
+        $bank_data = $this->get_bank_data();
 
         $this->get_bank_account_data();
 
@@ -133,6 +114,14 @@ class WC_Gateway_SePay extends WC_Payment_Gateway
     {
         if ($this->cached_bank_account_data === null && $this->get_option('bank_account')) {
             $this->cached_bank_account_data = $this->api->get_bank_account($this->get_option('bank_account'));
+            
+            if ($this->cached_bank_account_data) {
+                $settings = get_option('woocommerce_sepay_settings', []);
+                $settings['bank_select'] = strtolower($this->cached_bank_account_data['bank']['short_name']);
+                $settings['bank_account_number'] = $this->cached_bank_account_data['account_number'];
+                $settings['bank_account_holder'] = $this->cached_bank_account_data['account_holder_name'];
+                update_option('woocommerce_sepay_settings', $settings);
+            }
         }
         return $this->cached_bank_account_data;
     }
@@ -614,16 +603,42 @@ class WC_Gateway_SePay extends WC_Payment_Gateway
     {
         $order = wc_get_order($order_id);
         $remark = $this->get_remark($order_id);
-        if (! $this->api->is_connected()) {
-            $account_number = $this->get_option('bank_account_number');
-        } else {
-            if (! $this->cached_bank_account_data) {
-                return;
-            }
-
+        
+        if ($this->api->is_connected() && $this->cached_bank_account_data) {
             $bank_account_id = $this->get_option('bank_account');
             $bank_account = $this->api->get_bank_account($bank_account_id);
             $account_number = $this->get_option('sub_account') ? $this->get_option('sub_account') : $bank_account['account_number'];
+            $account_holder_name = $this->cached_bank_account_data['account_holder_name'];
+            $bank_bin = $this->cached_bank_account_data['bank']['bin'];
+            $bank_logo_url = $this->cached_bank_account_data['bank']['logo_url'];
+            $displayed_bank_name = $this->displayed_bank_name;
+        } else {
+            $account_number = $this->get_option('bank_account_number');
+            $account_holder_name = $this->get_option('bank_account_holder');
+            
+            $bank_select = $this->get_option('bank_select');
+            $bank_info = null;
+            foreach ($this->get_bank_data() as $bank) {
+                if ($bank['code'] === strtoupper($bank_select)) {
+                    $bank_info = $bank;
+                    break;
+                }
+            }
+
+            if ($bank_info) {
+                $bank_bin = $bank_info['bin'];
+                $bank_logo_url = sprintf('https://my.sepay.vn/assets/images/banklogo/%s.png', strtolower($bank_info['short_name']));
+                
+                if ($this->bank_name_display_type == "brand_name") {
+                    $displayed_bank_name = $bank_info['short_name'];
+                } else if ($this->bank_name_display_type == "full_name") {
+                    $displayed_bank_name = $bank_info['full_name'];
+                } else if ($this->bank_name_display_type == "full_include_brand") {
+                    $displayed_bank_name = $bank_info['full_name'] . " (" . $bank_info['short_name'] . ")";
+                } else {
+                    $displayed_bank_name = $bank_info['short_name'];
+                }
+            }
         }
 
         if ($this->should_skip_thankyou_page($order)) {
@@ -633,14 +648,10 @@ class WC_Gateway_SePay extends WC_Payment_Gateway
         $qr_code_url = sprintf(
             'https://qr.sepay.vn/img?acc=%s&bank=%s&amount=%s&des=%s&template=compact',
             $account_number,
-            $this->bank_bin,
+            $bank_bin,
             $order->get_total(),
             $remark
         );
-
-        $bank_logo_url = $this->bank_logo_url;
-        $account_holder_name = $this->api->is_connected() ? $this->cached_bank_account_data['account_holder_name'] : $this->get_option('bank_account_holder');
-        $displayed_bank_name = $this->displayed_bank_name;
 
         require_once plugin_dir_path(__FILE__) . 'views/transfer-info.php';
 
@@ -788,5 +799,29 @@ class WC_Gateway_SePay extends WC_Payment_Gateway
             'sepay_reconnect'
         );
         require_once plugin_dir_path(__FILE__) . 'views/setup-webhook.php';
+    }
+
+    private function get_bank_data()
+    {
+        return array(
+            'vietcombank' => array('bin' => '970436', 'code' => 'VCB', 'short_name' => 'Vietcombank', 'full_name' => 'Ngân hàng TMCP Ngoại Thương Việt Nam'),
+            'vpbank' => array('bin' => '970432', 'code' => 'VPB', 'short_name' => 'VPBank', 'full_name' => 'Ngân hàng TMCP Việt Nam Thịnh Vượng'),
+            'acb' => array('bin' => '970416', 'code' => 'ACB', 'short_name' => 'ACB', 'full_name' => 'Ngân hàng TMCP Á Châu'),
+            'sacombank' => array('bin' => '970403', 'code' => 'STB', 'short_name' => 'Sacombank', 'full_name' => 'Ngân hàng TMCP Sài Gòn Thương Tín'),
+            'hdbank' => array('bin' => '970437', 'code' => 'HDB', 'short_name' => 'HDBank', 'full_name' => 'Ngân hàng TMCP Phát triển Thành phố Hồ Chí Minh'),
+            'vietinbank' => array('bin' => '970415', 'code' => 'ICB', 'short_name' => 'VietinBank', 'full_name' => 'Ngân hàng TMCP Công thương Việt Nam'),
+            'techcombank' => array('bin' => '970407', 'code' => 'TCB', 'short_name' => 'Techcombank', 'full_name' => 'Ngân hàng TMCP Kỹ thương Việt Nam'),
+            'mbbank' => array('bin' => '970422', 'code' => 'MB', 'short_name' => 'MBBank', 'full_name' => 'Ngân hàng TMCP Quân đội'),
+            'bidv' => array('bin' => '970418', 'code' => 'BIDV', 'short_name' => 'BIDV', 'full_name' => 'Ngân hàng TMCP Đầu tư và Phát triển Việt Nam'),
+            'msb' => array('bin' => '970426', 'code' => 'MSB', 'short_name' => 'MSB', 'full_name' => 'Ngân hàng TMCP Hàng Hải Việt Nam'),
+            'shinhanbank' => array('bin' => '970424', 'code' => 'SHBVN', 'short_name' => 'ShinhanBank', 'full_name' => 'Ngân hàng TNHH MTV Shinhan Việt Nam'),
+            'tpbank' => array('bin' => '970423', 'code' => 'TPB', 'short_name' => 'TPBank', 'full_name' => 'Ngân hàng TMCP Tiên Phong'),
+            'eximbank' => array('bin' => '970431', 'code' => 'EIB', 'short_name' => 'Eximbank', 'full_name' => 'Ngân hàng TMCP Xuất Nhập khẩu Việt Nam'),
+            'vib' => array('bin' => '970441', 'code' => 'VIB', 'short_name' => 'VIB', 'full_name' => 'Ngân hàng TMCP Quốc tế Việt Nam'),
+            'agribank' => array('bin' => '970405', 'code' => 'VBA', 'short_name' => 'Agribank', 'full_name' => 'Ngân hàng Nông nghiệp và Phát triển Nông thôn Việt Nam'),
+            'publicbank' => array('bin' => '970439', 'code' => 'PBVN', 'short_name' => 'PublicBank', 'full_name' => 'Ngân hàng TNHH MTV Public Việt Nam'),
+            'kienlongbank' =>  array('bin' => '970452', 'code' => 'KLB', 'short_name' => 'KienLongBank', 'full_name' => 'Ngân hàng TMCP Kiên Long'),
+            'ocb' => array('bin' => '970448', 'code' => 'OCB', 'short_name' => 'OCB', 'full_name' => 'Ngân hàng TMCP Phương Đông'),
+        );
     }
 }
