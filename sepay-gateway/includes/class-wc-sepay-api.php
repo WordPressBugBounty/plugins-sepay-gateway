@@ -142,96 +142,67 @@ class WC_SePay_API
 
     public function make_request($endpoint, $method = 'GET', $data = null)
     {
-        $max_retries = 3;
-        $retry_count = 0;
-        $retry_delay = 1; // seconds
-
-        while ($retry_count < $max_retries) {
-            try {
-                $access_token = $this->get_access_token();
-            } catch (Exception $e) {
-                $this->log_error('Failed to get access token', [
-                    'error' => $e->getMessage(),
-                    'retry_count' => $retry_count
-                ]);
-                if ($retry_count === $max_retries - 1) {
-                    return null;
-                }
-                $retry_count++;
-                sleep($retry_delay);
-                continue;
-            }
-
-            if (!$access_token) {
-                $this->log_error('No access token available');
-                return null;
-            }
-
-            $args = [
-                'method' => $method,
-                'headers' => [
-                    'Authorization' => 'Bearer ' . $access_token,
-                    'Content-Type' => 'application/json',
-                ],
-                'sslverify' => false,
-                'timeout' => 30,
-            ];
-
-            if ($data !== null && $method !== 'GET') {
-                $args['body'] = json_encode($data);
-            } else if ($data !== null && $method === 'GET') {
-                $endpoint .= '?' . http_build_query($data);
-            }
-
-            $url = SEPAY_API_URL . '/api/v1/' . $endpoint;
-
-            $response = wp_remote_request($url, $args);
-
-            if (is_wp_error($response)) {
-                $this->log_error('API request failed', [
-                    'error' => $response->get_error_message(),
-                    'endpoint' => $endpoint,
-                    'retry_count' => $retry_count
-                ]);
-                if ($retry_count === $max_retries - 1) {
-                    throw new Exception(esc_html($response->get_error_message()));
-                }
-                $retry_count++;
-                sleep($retry_delay);
-                continue;
-            }
-
-            $data = json_decode(wp_remote_retrieve_body($response), true);
-
-            if (isset($data['error']) && $data['error'] === 'access_denied') {
-                $this->log_error('Access denied, attempting to refresh token', [
-                    'endpoint' => $endpoint
-                ]);
-                try {
-                    $this->refresh_token();
-                } catch (Exception $e) {
-                    $this->log_error('Failed to refresh token', [
-                        'error' => $e->getMessage(),
-                        'retry_count' => $retry_count
-                    ]);
-                    if ($retry_count === $max_retries - 1) {
-                        return null;
-                    }
-                    $retry_count++;
-                    sleep($retry_delay);
-                    continue;
-                }
-                return $this->make_request($endpoint, $method, $data);
-            }
-
-            return $data;
+        try {
+            $access_token = $this->get_access_token();
+        } catch (Exception $e) {
+            $this->log_error('Failed to get access token', [
+                'error' => $e->getMessage(),
+            ]);
+            return null;
         }
 
-        $this->log_error('Max retries reached for API request', [
-            'endpoint' => $endpoint,
-            'method' => $method
-        ]);
-        return null;
+        if (!$access_token) {
+            $this->log_error('No access token available');
+            return null;
+        }
+
+        $args = [
+            'method' => $method,
+            'headers' => [
+                'Authorization' => 'Bearer ' . $access_token,
+                'Content-Type' => 'application/json',
+            ],
+            'sslverify' => false,
+            'timeout' => 30,
+        ];
+
+        if ($data !== null && $method !== 'GET') {
+            $args['body'] = json_encode($data);
+        } else if ($data !== null && $method === 'GET') {
+            $endpoint .= '?' . http_build_query($data);
+        }
+
+        $url = SEPAY_API_URL . '/api/v1/' . $endpoint;
+
+        $response = wp_remote_request($url, $args);
+
+        if (is_wp_error($response)) {
+            $this->log_error('API request failed', [
+                'error' => $response->get_error_message(),
+                'endpoint' => $endpoint,
+            ]);
+            throw new Exception(esc_html($response->get_error_message()));
+        }
+
+        $data = json_decode(wp_remote_retrieve_body($response), true);
+
+        if (isset($data['error']) && $data['error'] === 'access_denied') {
+            $this->log_error('Access denied, attempting to refresh token', [
+                'endpoint' => $endpoint
+            ]);
+            try {
+                $this->refresh_token();
+            } catch (Exception $e) {
+                $this->log_error('Failed to refresh token', [
+                    'error' => $e->getMessage(),
+                ]);
+                return null;
+            }
+            // Thực hiện lại request chỉ một lần sau khi refresh token
+            return $this->make_request($endpoint, $method, $data);
+        }
+
+        return $data;
     }
 
     public function refresh_token()

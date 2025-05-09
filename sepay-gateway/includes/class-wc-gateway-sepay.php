@@ -67,7 +67,7 @@ class WC_Gateway_SePay extends WC_Payment_Gateway
 
             $this->method_description .= '<br><div id="content-render">URL API của bạn là: <span id="site_url">Đang tải url ...</span></div>';
         } elseif ($this->cached_bank_account_data) {
-            $this->displayed_bank_name = $this->cached_bank_account_data['bank']['short_name'];
+            $this->displayed_bank_name = $this->cached_bank_account_data['bank']['brand_name'] ?? $this->cached_bank_account_data['bank']['short_name'];
         }
 
         add_action('admin_init', [$this, 'lazy_load_bank_data']);
@@ -112,7 +112,7 @@ class WC_Gateway_SePay extends WC_Payment_Gateway
 
     public function get_bank_account_data()
     {
-        if ($this->cached_bank_account_data === null && $this->get_option('bank_account')) {
+        if ($this->cached_bank_account_data === null && $this->get_option('bank_account') && $this->api->is_connected()) {
             $this->cached_bank_account_data = $this->api->get_bank_account($this->get_option('bank_account'));
             
             if ($this->cached_bank_account_data) {
@@ -617,14 +617,8 @@ class WC_Gateway_SePay extends WC_Payment_Gateway
             $account_holder_name = $this->get_option('bank_account_holder');
             
             $bank_select = $this->get_option('bank_select');
-            $bank_info = null;
-            foreach ($this->get_bank_data() as $bank) {
-                if ($bank['code'] === strtoupper($bank_select)) {
-                    $bank_info = $bank;
-                    break;
-                }
-            }
-
+            $bank_info = $this->get_bank_data()[$bank_select];
+            
             if ($bank_info) {
                 $bank_bin = $bank_info['bin'];
                 $bank_logo_url = sprintf('https://my.sepay.vn/assets/images/banklogo/%s.png', strtolower($bank_info['short_name']));

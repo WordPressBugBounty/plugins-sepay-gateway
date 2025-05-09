@@ -5,7 +5,7 @@
  * Description: SePay - Giải pháp tự động xác nhận thanh toán chuyển khoản ngân hàng
  * Author: SePay Team
  * Author URI: https://sepay.vn/
- * Version: 1.1.8
+ * Version: 1.1.10
  * Requires Plugins: woocommerce
  * Text Domain: sepay-gateway
  * License: GNU General Public License v3.0
@@ -487,6 +487,54 @@ function sepay_redirect()
         if (!isset($_GET['page']) || $_GET['page'] !== 'wc-settings' || !isset($_GET['section']) || $_GET['section'] !== 'sepay') {
             wp_safe_redirect(admin_url('admin.php?page=wc-settings&tab=checkout&section=sepay&oauth2=1'));
             exit;
+        }
+    }
+}
+
+add_action('init', 'sepay_schedule_health_check');
+
+function sepay_schedule_health_check() {
+    if (!wp_next_scheduled('sepay_health_check')) {
+        wp_schedule_event(time(), 'hourly', 'sepay_health_check');
+    }
+}
+
+add_action('sepay_health_check', 'sepay_perform_health_check');
+
+function sepay_perform_health_check() {
+    $api = new WC_SePay_API();
+    $status = $api->get_connection_status();
+
+    if (!$status['health_check']) {
+        try {
+            $api->refresh_token();
+        } catch (Exception $e) {
+            if (function_exists('wc_get_logger')) {
+                $logger = wc_get_logger();
+                $logger->error('Failed to restore connection during health check', [
+                    'source' => 'sepay',
+                    'error' => $e->getMessage()
+                ]);
+            }
+        }
+    }
+}
+
+register_deactivation_hook(__FILE__, 'sepay_deactivate');
+
+function sepay_deactivate() {
+    wp_clear_scheduled_hook('sepay_health_check');
+}
+
+add_action('upgrader_process_complete', 'sepay_clear_cache_after_update', 10, 2);
+
+function sepay_clear_cache_after_update($upgrader_object, $options) {
+    if ($options['action'] === 'update' && $options['type'] === 'plugin') {
+        foreach ($options['plugins'] as $plugin) {
+            if (plugin_basename(__FILE__) === $plugin) {
+                delete_transient('wc_sepay_bank_accounts');
+                break;
+            }
         }
     }
 }
