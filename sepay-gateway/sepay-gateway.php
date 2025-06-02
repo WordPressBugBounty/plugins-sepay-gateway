@@ -5,7 +5,7 @@
  * Description: SePay - Giải pháp tự động xác nhận thanh toán chuyển khoản ngân hàng
  * Author: SePay Team
  * Author URI: https://sepay.vn/
- * Version: 1.1.11
+ * Version: 1.1.12
  * Requires Plugins: woocommerce
  * Text Domain: sepay-gateway
  * License: GNU General Public License v3.0
@@ -168,7 +168,11 @@ function sepay_init_gateway_class()
 
         $settings['enabled'] = 'yes';
         $settings['bank_account'] = $bank_account_id;
-        $settings['sub_account'] = $sub_account;
+	$settings['sub_account'] = $sub_account;
+
+	$settings['title'] = 'SePay';
+        $settings['description'] = 'Thanh toán qua chuyển khoản ngân hàng với QR Code (VietQR). Tự động xác nhận thanh toán qua <a href="https://sepay.vn" target="_blank">SePay</a>.';
+        $settings['logo'] = plugin_dir_url(__FILE__) . 'assets/images/sepay-logo.png';
 
         update_option('woocommerce_sepay_settings', $settings);
         wp_send_json_success(['message' => 'Webhook đã được tạo thành công!']);

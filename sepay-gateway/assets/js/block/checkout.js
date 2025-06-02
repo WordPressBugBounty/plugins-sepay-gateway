@@ -2,7 +2,9 @@ const settings = window.wc.wcSettings.getSetting('paymentMethodData').sepay;
 const label = window.wp.htmlEntities.decodeEntities(settings.title);
 
 const Content = () => {
-    return window.wp.htmlEntities.decodeEntities(settings.description || '');
+    return window.wp.element.createElement('div', {
+        dangerouslySetInnerHTML: { __html: settings.description || '' }
+    });
 };
 
 const Block_Gateway = {
