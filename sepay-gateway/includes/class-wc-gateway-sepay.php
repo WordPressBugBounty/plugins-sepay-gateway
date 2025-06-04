@@ -660,10 +660,16 @@ class WC_Gateway_SePay extends WC_Payment_Gateway
         wp_enqueue_script('sepay_script', plugin_dir_url(__DIR__) . 'assets/js/sepay.js', ['jquery'], $script_version, true);
         wp_enqueue_style('sepay_style', plugin_dir_url(__DIR__) . 'assets/css/sepay.css', [], $style_version);
 
+        if ($this->api->is_connected()) {
+            $account_number = $this->get_option('sub_account') ? $this->get_option('sub_account') : ($this->cached_bank_account_data['account_number'] ?? $this->get_option('bank_account_number'));
+        } else {
+            $account_number = $this->get_option('bank_account_number');
+        }
+
         wp_localize_script('sepay_script', 'sepay_vars', [
             'ajax_url' => esc_url(admin_url('admin-ajax.php')),
             'order_code' => $this->get_option('pay_code_prefix') . $order_id,
-            'account_number' => $this->api->is_connected() ? ($this->get_option('sub_account') ? $this->get_option('sub_account') : $this->cached_bank_account_data['account_number']) : $this->get_option('bank_account_number'),
+            'account_number' => $account_number,
             'remark' => $this->get_remark($order_id),
             'amount' => $order->get_total(),
             'order_nonce' => wp_create_nonce('submit_order'),
@@ -677,7 +683,8 @@ class WC_Gateway_SePay extends WC_Payment_Gateway
     {
         $remark = $this->get_option('pay_code_prefix') . $order_id;
 
-        if ($this->bank_bin === '970415') {
+        // VietinBank, ABBANK
+        if (in_array($this->bank_bin, ['970415', '970425'])) {
             $remark = "SEVQR $remark";
         }
 
@@ -816,6 +823,7 @@ class WC_Gateway_SePay extends WC_Payment_Gateway
             'publicbank' => array('bin' => '970439', 'code' => 'PBVN', 'short_name' => 'PublicBank', 'full_name' => 'Ngân hàng TNHH MTV Public Việt Nam'),
             'kienlongbank' =>  array('bin' => '970452', 'code' => 'KLB', 'short_name' => 'KienLongBank', 'full_name' => 'Ngân hàng TMCP Kiên Long'),
             'ocb' => array('bin' => '970448', 'code' => 'OCB', 'short_name' => 'OCB', 'full_name' => 'Ngân hàng TMCP Phương Đông'),
+            'abbank' => array('bin' => '970425', 'code' => 'ABBANK', 'short_name' => 'ABBANK', 'full_name' => 'Ngân hàng TMCP An Bình'),
         );
     }
 }
