@@ -3,8 +3,8 @@
  - Contributors: sepayteam
  - Tags: woocommerce, payment gateway, vietqr, ngan hang, thanh toan
  - Requires WooCommerce at least: 2.1
- - Stable Tag: 1.1.13
- - Version: 1.1.13
+ - Stable Tag: 1.1.14
+ - Version: 1.1.14
  - Tested up to: 6.6
  - Requires at least: 5.6
  - Requires PHP: 7.2
@@ -22,7 +22,7 @@ Cấu hình tùy biến mẫu VietQR bằng cách nhập mã Template VietQR đ�
 
 **Chính sách bảo mật**: [Xem tại đây](https://sepay.vn/privacy.html)
 
-SePay hỗ trợ kết nối hơn 15 ngân hàng để tự xác nhận thanh toán khi khách hàng chuyển khoản. Bao gồm: Vietcombank, VPBank, VIB, VietinBank, MBBank, ACB, Sacombank, TPBank, Eximbank, HDBank, BIDV, TechcomBank, MSB, ShinhanBank, Agribank, PublicBank
+SePay hỗ trợ kết nối hơn 30 ngân hàng để tự xác nhận thanh toán khi khách hàng chuyển khoản. Bao gồm: Vietcombank, VPBank, VIB, VietinBank, MBBank, ACB, Sacombank, TPBank, Eximbank, HDBank, BIDV, TechcomBank, MSB, ShinhanBank, Agribank, PublicBank
 
 Hỗ trợ cả tài khoản cá nhân và doanh nghiệp.
 
@@ -52,13 +52,12 @@ Cấu hình plugin và thêm webhook tại SePay. Xem hướng dẫn tại https
 
 == CHANGELOG ==
 
+**Version 1.1.14** - 04/07/2025:
+- [Cải thiện] Thêm User-Agent và thông tin phiên bản plugin vào header API requests để SePay có thể theo dõi và hỗ trợ tốt hơn
+
 10/04/2025:
 - [Cập nhật] Mở rộng tùy chọn trạng thái đơn hàng sau khi thanh toán thành công. Giờ đây có thể chọn từ tất cả các trạng thái đơn hàng của WooCommerce thay vì chỉ giới hạn ở "Đang xử lý" và "Hoàn thành".
 - [Fix lỗi] Copy số tài khoản không đúng ở trang thanh toán
-
-11/03/2025:
-- [Tính năng mới] Cho phép WooCommerce kết nối với tài khoản của khách trên SePay để đồng bộ dữ liệu tài khoản ngân hàng, tiền tố mã thanh toán và webhook.
-
 
 15/11/2023:
 - [Fix lỗi]: Không xác thực thanh toán khi sử dụng VA MSB.

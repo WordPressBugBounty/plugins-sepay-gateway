@@ -20,7 +20,6 @@ class WC_SePay_API
                 'redirect_uri' => $this->get_callback_url(),
                 'state' => $state,
             ],
-            'sslverify' => false,
         ]);
 
         if (is_wp_error($response)) {
@@ -130,7 +129,8 @@ class WC_SePay_API
         }
     }
 
-    private function log_error($message, $context = []) {
+    private function log_error($message, $context = [])
+    {
         if (function_exists('wc_get_logger')) {
             $logger = wc_get_logger();
             $logger->error($message, [
@@ -161,8 +161,8 @@ class WC_SePay_API
             'headers' => [
                 'Authorization' => 'Bearer ' . $access_token,
                 'Content-Type' => 'application/json',
+                'User-Agent' => 'WooCommerce-SePay-Gateway/' . $this->get_plugin_version() . ' (WordPress/' . get_bloginfo('version') . '; WooCommerce/' . (defined('WC_VERSION') ? WC_VERSION : 'Unknown') . ')',
             ],
-            'sslverify' => false,
             'timeout' => 30,
         ];
 
@@ -217,7 +217,6 @@ class WC_SePay_API
             'body' => [
                 'refresh_token' => $refresh_token,
             ],
-            'sslverify' => false,
         ]);
 
         if (is_wp_error($response)) {
@@ -457,7 +456,8 @@ class WC_SePay_API
         return in_array($bank_account[$key]['bank']['short_name'], $required_sub_account_banks);
     }
 
-    public function check_connection_health() {
+    public function check_connection_health()
+    {
         try {
             $response = $this->make_request('me');
             if ($response && isset($response['data'])) {
@@ -472,7 +472,8 @@ class WC_SePay_API
         }
     }
 
-    public function get_connection_status() {
+    public function get_connection_status()
+    {
         $access_token = get_option('wc_sepay_access_token');
         $refresh_token = get_option('wc_sepay_refresh_token');
         $token_expires = get_option('wc_sepay_token_expires');
@@ -486,5 +487,17 @@ class WC_SePay_API
         ];
 
         return $status;
+    }
+
+    private function get_plugin_version()
+    {
+        if (!function_exists('get_plugin_data')) {
+            require_once ABSPATH . 'wp-admin/includes/plugin.php';
+        }
+
+        $plugin_file = dirname(dirname(__FILE__)) . '/sepay-gateway.php';
+        $plugin_data = get_plugin_data($plugin_file);
+
+        return $plugin_data['Version'] ?? '1.0.0';
     }
 }
