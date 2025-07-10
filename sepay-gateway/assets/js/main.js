@@ -14,7 +14,9 @@ jQuery(document).ready(function () {
         if (selectedAccountId) {
             loadingSpinner.show();
             
-            const requiresSubAccount = ['BIDV', 'MSB', 'KienLongBank', 'OCB'].includes(bankShortName);
+            const excludedSubAccountBanks = ['TPBank', 'VPBank', 'VietinBank'];
+            const requiredSubAccountBanks = ['BIDV', 'MSB', 'KienLongBank', 'OCB'];
+            const requiresSubAccount = requiredSubAccountBanks.includes(bankShortName) && !excludedSubAccountBanks.includes(bankShortName);
             
             if (requiresSubAccount) {
                 subAccountContainer.show();
@@ -136,7 +138,7 @@ jQuery(document).ready(function () {
                 options.push('<option value="">-- Chọn tài khoản ảo --</option>');
                 if (response.success && response.data.length > 0) {
                     options = response.data.map(function (bankAccount) {
-                        return `<option value="${bankAccount.id}">${bankAccount.bank.short_name} - ${bankAccount.account_number} - ${bankAccount.account_holder_name}</option>`;
+                        return `<option value="${bankAccount.id}">${bankAccount.bank.brand_name} - ${bankAccount.account_number} - ${bankAccount.account_holder_name}</option>`;
                     });
                 }
 
@@ -180,12 +182,26 @@ jQuery(document).ready(function () {
 
     bankAccountField.on('change', function () {
         const selectedBankAccountId = jQuery(this).val();
+        const selectedOption = jQuery(this).find('option:selected');
+        const bankName = selectedOption.text().split(' - ')[0];
+        const currentSubAccountValue = subAccountField.val();
 
         if (!selectedBankAccountId) {
             subAccountField.html('<option value="">Vui lòng chọn tài khoản ngân hàng trước</option>');
+            subAccountField.prop('disabled', true);
             return;
         }
 
+        const excludedSubAccountBanks = ['TPBank', 'VPBank', 'VietinBank'];
+        const requiredSubAccountBanks = ['BIDV', 'MSB', 'KienLongBank', 'OCB'];
+        
+        if (excludedSubAccountBanks.includes(bankName)) {
+            subAccountField.html('<option value="">Ngân hàng ' + bankName + ' không hỗ trợ tài khoản VA</option>');
+            subAccountField.prop('disabled', true);
+            return;
+        }
+
+        subAccountField.prop('disabled', false);
         subAccountField.html(loadingMessage);
 
         jQuery.ajax({
@@ -197,13 +213,24 @@ jQuery(document).ready(function () {
             },
             success: function (response) {
                 let options = [];
-                options.push('<option value="">-- Chọn tài khoản ảo --</option>');
                 if (response.success && response.data.length > 0) {
+                    options.push('<option value="">-- Chọn tài khoản ảo --</option>');
                     response.data.map(function (subAccount) {
                         options.push(`<option value="${subAccount.account_number}">${subAccount.account_number}${subAccount.label ? ` - ${subAccount.label}` : ''}</option>`);
                     });
+                } else {
+                    options.push('<option value="">Không có tài khoản VA nào</option>');
                 }
                 subAccountField.html(options.join(''));
+                
+                if (currentSubAccountValue && response.success && response.data.length > 0) {
+                    const subAccountExists = response.data.some(function(subAccount) {
+                        return subAccount.account_number === currentSubAccountValue;
+                    });
+                    if (subAccountExists) {
+                        subAccountField.val(currentSubAccountValue);
+                    }
+                }
             },
             error: function () {
                 subAccountField.html('<option value="">Lỗi khi tải tài khoản ảo. Vui lòng thử lại.</option>');
@@ -219,10 +246,27 @@ jQuery(document).ready(function () {
         }, 500);
     }
 
+    if (bankAccountField.length && bankAccountField.val()) {
+        setTimeout(function() {
+            const savedSubAccountValue = subAccountField.val();
+            bankAccountField.trigger('change');
+            
+            if (savedSubAccountValue) {
+                setTimeout(function() {
+                    if (subAccountField.find(`option[value="${savedSubAccountValue}"]`).length) {
+                        subAccountField.val(savedSubAccountValue);
+                    }
+                }, 200);
+            }
+        }, 100);
+    }
+
     function update_account_number_field_ui() {
       const bank = jQuery('#woocommerce_sepay_bank_select').val()
+      const excludedSubAccountBanks = ['tpbank', 'vpbank', 'vietinbank'];
+      const requiredSubAccountBanks = ['bidv', 'ocb', 'msb', 'kienlongbank'];
 
-      if (['bidv', 'ocb', 'msb', 'kienlongbank'].includes(bank)) {
+      if (requiredSubAccountBanks.includes(bank) && !excludedSubAccountBanks.includes(bank)) {
           jQuery('label[for=woocommerce_sepay_bank_account_number]').html('Số VA');
           jQuery('input[name=woocommerce_sepay_bank_account_number]').parent().find('.help-text').html('Vui lòng điền chính xác <strong>số VA</strong> để nhận được biến động giao dịch.')
 

@@ -3,8 +3,8 @@
  - Contributors: sepayteam
  - Tags: woocommerce, payment gateway, vietqr, ngan hang, thanh toan
  - Requires WooCommerce at least: 2.1
- - Stable Tag: 1.1.15
- - Version: 1.1.15
+ - Stable Tag: 1.1.16
+ - Version: 1.1.16
  - Tested up to: 6.6
  - Requires at least: 5.6
  - Requires PHP: 7.2
@@ -51,6 +51,12 @@ Bạn cần có tài khoản [tại đây](https://my.sepay.vn)
 Cấu hình plugin và thêm webhook tại SePay. Xem hướng dẫn tại https://docs.sepay.vn/woocommerce.html
 
 == CHANGELOG ==
+
+**Version 1.1.16** - 10/07/2025:
+- [Fix lỗi] Sửa lỗi API key bị thay đổi khi kết nối lại OAuth2
+- [Cải thiện] Tối ưu hóa hiển thị tài khoản VA cho các ngân hàng yêu cầu VA (BIDV, OCB, MSB, KienLongBank)
+- [Cải thiện] Tự động lưu và khôi phục tài khoản VA đã chọn khi cấu hình
+- [Fix lỗi] Sửa lỗi hiển thị tài khoản VA khi chuyển đổi giữa các ngân hàng
 
 **Version 1.1.14** - 04/07/2025:
 - [Cải thiện] Thêm User-Agent và thông tin phiên bản plugin vào header API requests để SePay có thể theo dõi và hỗ trợ tốt hơn

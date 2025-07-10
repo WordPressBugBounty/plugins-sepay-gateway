@@ -166,9 +166,36 @@ class WC_Gateway_SePay extends WC_Payment_Gateway
             return false;
         }
 
-        if ($this->api->is_required_sub_account($bank_account_id, $this->bank_accounts) && empty($sub_account)) {
-            WC_Admin_Settings::add_error('Ngân hàng đang chọn yêu cầu tài khoản VA. Vui lòng chọn tài khoản VA trước khi lưu.');
-            return false;
+        $excluded_sub_account_banks = ['TPBank', 'VPBank', 'VietinBank'];
+        $bank_account = array_filter($this->bank_accounts, function ($account) use ($bank_account_id) {
+            return $account['id'] == $bank_account_id;
+        });
+
+        if (!empty($bank_account)) {
+            reset($bank_account);
+            $key = key($bank_account);
+            $bank_short_name = $bank_account[$key]['bank']['short_name'];
+
+            if (in_array($bank_short_name, $excluded_sub_account_banks) && !empty($sub_account)) {
+                WC_Admin_Settings::add_error('Ngân hàng ' . $bank_short_name . ' không hỗ trợ tài khoản VA. Vui lòng bỏ chọn tài khoản VA.');
+                return false;
+            }
+        }
+
+        $required_sub_account_banks = ['BIDV', 'OCB', 'MSB', 'KienLongBank'];
+        $bank_account = array_filter($this->bank_accounts, function ($account) use ($bank_account_id) {
+            return $account['id'] == $bank_account_id;
+        });
+
+        if (!empty($bank_account)) {
+            reset($bank_account);
+            $key = key($bank_account);
+            $bank_short_name = $bank_account[$key]['bank']['short_name'];
+
+            if (in_array($bank_short_name, $required_sub_account_banks) && empty($sub_account)) {
+                WC_Admin_Settings::add_error('Ngân hàng ' . $bank_short_name . ' yêu cầu phải chọn tài khoản VA. Vui lòng chọn tài khoản VA trước khi lưu.');
+                return false;
+            }
         }
 
         $current_settings = get_option('woocommerce_sepay_settings', []);
@@ -264,7 +291,6 @@ class WC_Gateway_SePay extends WC_Payment_Gateway
             try {
                 $this->api->refresh_token();
             } catch (Exception $e) {
-                WC_Admin_Settings::add_error('Không thể làm mới token. Vui lòng thử lại sau.');
                 $this->init_old_form_fields();
                 return;
             }
@@ -316,26 +342,62 @@ class WC_Gateway_SePay extends WC_Payment_Gateway
             $selected_bank_account = $this->get_option('bank_account');
             $sub_account_options = [];
 
-            $sub_accounts = $this->api->get_bank_sub_accounts($selected_bank_account);
+            $excluded_sub_account_banks = ['TPBank', 'VPBank', 'VietinBank'];
+            $show_sub_account_field = true;
 
-            $sub_account_options = [
-                '' => '-- Chọn tài khoản ảo --',
-            ];
+            if (!empty($selected_bank_account)) {
+                $bank_account = array_filter($this->bank_accounts, function ($account) use ($selected_bank_account) {
+                    return $account['id'] == $selected_bank_account;
+                });
 
-            if (! empty($sub_accounts)) {
-                foreach ($sub_accounts as $sub_account) {
-                    $sub_account_options[$sub_account['account_number']] = $sub_account['account_number'] . ($sub_account['label'] ? " - {$sub_account['label']}" : '');
+                if (!empty($bank_account)) {
+                    reset($bank_account);
+                    $key = key($bank_account);
+                    $bank_short_name = $bank_account[$key]['bank']['short_name'];
+
+                    if (in_array($bank_short_name, $excluded_sub_account_banks)) {
+                        $show_sub_account_field = false;
+                    }
                 }
             }
 
-            $form_fields['sub_account'] = [
-                'title' => 'Tài khoản VA',
-                'type' => 'select',
-                'description' => 'Tài khoản ngân hàng bạn chọn yêu cầu chọn tài khoản VA để nhận thanh toán <br> (Lưu ý: Bạn không thể sử dụng tài khoản VA để nhận thanh toán đối với các ngân hàng TPBank, VPBank và VietinBank).',
-                'options' => $sub_account_options,
-                'class' => 'dynamic-sub-account',
-                'default' => '',
-            ];
+            if ($show_sub_account_field) {
+                $sub_accounts = $this->api->get_bank_sub_accounts($selected_bank_account);
+
+                $sub_account_options = [];
+
+                if (! empty($sub_accounts)) {
+                    $sub_account_options[''] = '-- Chọn tài khoản ảo --';
+                    foreach ($sub_accounts as $sub_account) {
+                        $sub_account_options[$sub_account['account_number']] = $sub_account['account_number'] . ($sub_account['label'] ? " - {$sub_account['label']}" : '');
+                    }
+                } else {
+                    $sub_account_options[''] = '-- Không có tài khoản VA nào --';
+                }
+
+                $form_fields['sub_account'] = [
+                    'title' => 'Tài khoản VA',
+                    'type' => 'select',
+                    'description' => 'Chọn tài khoản VA để nhận thanh toán (nếu có). Một số ngân hàng yêu cầu phải chọn tài khoản VA. <br> (Lưu ý: TPBank, VPBank và VietinBank không hỗ trợ tài khoản VA).',
+                    'options' => $sub_account_options,
+                    'class' => 'dynamic-sub-account',
+                    'default' => $this->get_option('sub_account'),
+                ];
+            } else {
+                $form_fields['sub_account'] = [
+                    'title' => 'Tài khoản VA',
+                    'type' => 'select',
+                    'description' => 'Ngân hàng này không hỗ trợ tài khoản VA.',
+                    'options' => [
+                        '' => '-- Không hỗ trợ tài khoản VA --',
+                    ],
+                    'class' => 'dynamic-sub-account',
+                    'default' => '',
+                    'custom_attributes' => [
+                        'disabled' => 'disabled',
+                    ],
+                ];
+            }
         }
 
         $form_fields['pay_code_prefix'] = [
@@ -615,17 +677,29 @@ class WC_Gateway_SePay extends WC_Payment_Gateway
         if ($this->api->is_connected() && $this->cached_bank_account_data) {
             $bank_account_id = $this->get_option('bank_account');
             $bank_account = $this->api->get_bank_account($bank_account_id);
-            $account_number = $this->get_option('sub_account') ? $this->get_option('sub_account') : $bank_account['account_number'];
+
+            $required_sub_account_banks = ['BIDV', 'OCB', 'MSB', 'KienLongBank'];
+            $bank_short_name = $this->cached_bank_account_data['bank']['short_name'];
+
+            if (in_array($bank_short_name, $required_sub_account_banks)) {
+                $account_number = $this->get_option('sub_account');
+                if (empty($account_number)) {
+                    $account_number = $bank_account['account_number'];
+                }
+            } else {
+                $account_number = $this->get_option('sub_account') ? $this->get_option('sub_account') : $bank_account['account_number'];
+            }
+
             $account_holder_name = $this->cached_bank_account_data['account_holder_name'];
             $bank_bin = $this->cached_bank_account_data['bank']['bin'];
             $bank_logo_url = $this->cached_bank_account_data['bank']['logo_url'];
             $displayed_bank_name = $this->displayed_bank_name;
         } else {
-            $account_number = $this->get_option('bank_account_number');
-            $account_holder_name = $this->get_option('bank_account_holder');
-
             $bank_select = $this->get_option('bank_select');
-            $bank_info = $this->get_bank_data()[$bank_select];
+            $bank_info = $this->get_bank_info($bank_select);
+
+            $account_number = $this->get_option('sub_account') ? $this->get_option('sub_account') : $this->get_option('bank_account_number');
+            $account_holder_name = $this->get_option('bank_account_holder');
 
             if ($bank_info) {
                 $bank_bin = $bank_info['bin'];
@@ -669,9 +743,19 @@ class WC_Gateway_SePay extends WC_Payment_Gateway
         wp_enqueue_style('sepay_style', plugin_dir_url(__DIR__) . 'assets/css/sepay.css', [], $style_version);
 
         if ($this->api->is_connected()) {
-            $account_number = $this->get_option('sub_account') ? $this->get_option('sub_account') : ($this->cached_bank_account_data['account_number'] ?? $this->get_option('bank_account_number'));
+            $required_sub_account_banks = ['BIDV', 'OCB', 'MSB', 'KienLongBank'];
+            $bank_short_name = $this->cached_bank_account_data['bank']['short_name'] ?? '';
+
+            if (in_array($bank_short_name, $required_sub_account_banks)) {
+                $account_number = $this->get_option('sub_account');
+                if (empty($account_number)) {
+                    $account_number = $this->cached_bank_account_data['account_number'] ?? $this->get_option('bank_account_number');
+                }
+            } else {
+                $account_number = $this->get_option('sub_account') ? $this->get_option('sub_account') : ($this->cached_bank_account_data['account_number'] ?? $this->get_option('bank_account_number'));
+            }
         } else {
-            $account_number = $this->get_option('bank_account_number');
+            $account_number = $this->get_option('sub_account') ? $this->get_option('sub_account') : $this->get_option('bank_account_number');
         }
 
         wp_localize_script('sepay_script', 'sepay_vars', [
@@ -833,5 +917,27 @@ class WC_Gateway_SePay extends WC_Payment_Gateway
             'ocb' => array('bin' => '970448', 'code' => 'OCB', 'short_name' => 'OCB', 'full_name' => 'Ngân hàng TMCP Phương Đông'),
             'abbank' => array('bin' => '970425', 'code' => 'ABBANK', 'short_name' => 'ABBANK', 'full_name' => 'Ngân hàng TMCP An Bình'),
         );
+    }
+
+    private function get_bank_info($identifier)
+    {
+        $bank_data = $this->get_bank_data();
+
+        if (isset($bank_data[$identifier])) {
+            return $bank_data[$identifier];
+        }
+
+        foreach ($bank_data as $key => $bank) {
+            if (
+                strtolower($bank['code']) === strtolower($identifier) ||
+                $bank['bin'] === $identifier ||
+                $bank['short_name'] === $identifier ||
+                strtolower($bank['short_name']) === strtolower($identifier)
+            ) {
+                return $bank;
+            }
+        }
+
+        return null;
     }
 }

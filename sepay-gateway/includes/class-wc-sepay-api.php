@@ -348,13 +348,13 @@ class WC_SePay_API
         }
     }
 
-    public function create_webhook($bank_account_id, $webhook_id = null)
+    public function create_webhook($bank_account_id, $webhook_id = null, $api_key = null)
     {
         if (!$this->is_connected()) {
             return null;
         }
 
-        $api_key = wp_generate_password(32, false);
+        $api_key = $api_key ?: wp_generate_password(32, false);
 
         $api_path = 'sepay-gateway/v2/add-payment';
         $webhook_url = get_option('permalink_structure') ? '/wp-json/' . $api_path : '/?rest_route=/' . $api_path;
@@ -493,6 +493,7 @@ class WC_SePay_API
     public function is_required_sub_account($bank_account_id, $bank_accounts = null)
     {
         $required_sub_account_banks = ['BIDV', 'OCB', 'MSB', 'KienLongBank'];
+        $excluded_sub_account_banks = ['TPBank', 'VPBank', 'VietinBank'];
         $bank_accounts = $bank_accounts ?? $this->get_bank_accounts();
 
         $bank_account = array_filter($bank_accounts, function ($account) use ($bank_account_id) {
@@ -505,41 +506,13 @@ class WC_SePay_API
 
         reset($bank_account);
         $key = key($bank_account);
+        $bank_short_name = $bank_account[$key]['bank']['short_name'];
 
-        return in_array($bank_account[$key]['bank']['short_name'], $required_sub_account_banks);
-    }
-
-    public function check_connection_health()
-    {
-        try {
-            $response = $this->make_request('me');
-            if ($response && isset($response['data'])) {
-                return true;
-            }
-            return false;
-        } catch (Exception $e) {
-            $this->log_error('Health check failed', [
-                'error' => $e->getMessage()
-            ]);
+        if (in_array($bank_short_name, $excluded_sub_account_banks)) {
             return false;
         }
-    }
 
-    public function get_connection_status()
-    {
-        $access_token = get_option('wc_sepay_access_token');
-        $refresh_token = get_option('wc_sepay_refresh_token');
-        $token_expires = get_option('wc_sepay_token_expires');
-        $last_connected_at = get_option('wc_sepay_last_connected_at');
-
-        $status = [
-            'is_connected' => !empty($access_token) && !empty($refresh_token),
-            'token_expires_in' => $token_expires ? ($token_expires - time()) : 0,
-            'last_connected_at' => $last_connected_at,
-            'health_check' => $this->check_connection_health()
-        ];
-
-        return $status;
+        return in_array($bank_short_name, $required_sub_account_banks);
     }
 
     private function get_plugin_version()
