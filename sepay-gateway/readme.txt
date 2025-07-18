@@ -3,8 +3,8 @@
  - Contributors: sepayteam
  - Tags: woocommerce, payment gateway, vietqr, ngan hang, thanh toan
  - Requires WooCommerce at least: 2.1
- - Stable Tag: 1.1.16
- - Version: 1.1.16
+ - Stable Tag: 1.1.17
+ - Version: 1.1.17
  - Tested up to: 6.6
  - Requires at least: 5.6
  - Requires PHP: 7.2
@@ -51,6 +51,8 @@ Bạn cần có tài khoản [tại đây](https://my.sepay.vn)
 Cấu hình plugin và thêm webhook tại SePay. Xem hướng dẫn tại https://docs.sepay.vn/woocommerce.html
 
 == CHANGELOG ==
+**Version 1.1.17** - 18/07/2025:
+- [Fix lỗi] Xóa cache khi ngắt kết nối OAuth2
 
 **Version 1.1.16** - 10/07/2025:
 - [Fix lỗi] Sửa lỗi API key bị thay đổi khi kết nối lại OAuth2

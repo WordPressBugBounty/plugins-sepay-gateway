@@ -487,7 +487,10 @@ class WC_SePay_API
         delete_option('wc_sepay_webhook_id');
         delete_option('wc_sepay_webhook_api_key');
         delete_option('wc_sepay_last_connected_at');
-        delete_transient('wc_sepay_bank_accounts');
+	delete_transient('wc_sepay_bank_accounts');
+	delete_transient('wc_sepay_user_info');
+        delete_transient('wc_sepay_company');
+        delete_transient('wc_sepay_bank_sub_accounts');
     }
 
     public function is_required_sub_account($bank_account_id, $bank_accounts = null)
