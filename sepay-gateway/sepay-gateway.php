@@ -5,7 +5,7 @@
  * Description: SePay - Giải pháp tự động xác nhận thanh toán chuyển khoản ngân hàng
  * Author: SePay Team
  * Author URI: https://sepay.vn/
- * Version: 1.1.17
+ * Version: 1.1.18
  * Requires Plugins: woocommerce
  * Text Domain: sepay-gateway
  * License: GNU General Public License v3.0

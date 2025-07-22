@@ -66,8 +66,9 @@ class WC_Gateway_SePay extends WC_Payment_Gateway
                 $this->displayed_bank_name = $bank_brand_name;
 
             $this->method_description .= '<br><div id="content-render">URL API của bạn là: <span id="site_url">Đang tải url ...</span></div>';
-        } elseif ($this->cached_bank_account_data) {
-            $this->displayed_bank_name = $this->cached_bank_account_data['bank']['brand_name'] ?? $this->cached_bank_account_data['bank']['short_name'];
+	} elseif ($this->cached_bank_account_data) {
+            $this->displayed_bank_name = $this->get_display_bank_name($this->cached_bank_account_data['bank']);
+
         }
 
         add_action('admin_init', [$this, 'lazy_load_bank_data']);
@@ -890,6 +891,10 @@ class WC_Gateway_SePay extends WC_Payment_Gateway
         $reconnect_url = wp_nonce_url(
             add_query_arg('reconnect', '1', admin_url('admin.php?page=wc-settings&tab=checkout&section=sepay')),
             'sepay_reconnect'
+    );
+        $disconnect_url = wp_nonce_url(
+            add_query_arg('disconnect', '1', admin_url('admin.php?page=wc-settings&tab=checkout&section=sepay')),
+            'sepay_disconnect'
         );
         require_once plugin_dir_path(__FILE__) . 'views/setup-webhook.php';
     }

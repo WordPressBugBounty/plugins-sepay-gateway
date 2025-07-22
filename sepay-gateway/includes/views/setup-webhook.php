@@ -1,7 +1,10 @@
 <style>
     .wc-sepay-webhook-settings-container {
         display: flex;
+        flex-direction: column;
+        gap: 12px;
         justify-content: center;
+        align-items: center;
     }
 
     .wc-sepay-webhook-box {
@@ -154,6 +157,7 @@
         from {
             transform: rotate(0deg);
         }
+
         to {
             transform: rotate(360deg);
         }
@@ -200,16 +204,23 @@
             </div>
             <div class="wc-sepay-sub-account-list" style="display: none;">
                 <p class="wc-sepay-helper-text" style="margin-top: 0">Chọn tài khoản VA:</p>
-                <div class="loading-spinner"><div></div></div>
+                <div class="loading-spinner">
+                    <div></div>
+                </div>
                 <div id="wc-sepay-sub-account-container"></div>
             </div>
             <button type="submit" class="components-button is-primary button-primary" id="complete-setup" disabled>Hoàn tất thiết lập</button>
         <?php endif; ?>
     </div>
+    <?php if (isset($disconnect_url) && !empty($disconnect_url)): ?>
+        <div style="margin-top:12px;">
+            <a href="<?php echo esc_url($disconnect_url); ?>" style="color:#0073aa;text-decoration:underline;">Hủy kết nối</a>
+        </div>
+    <?php endif; ?>
 </div>
 
 <script>
-    window.addEventListener('beforeunload', function (event) {
+    window.addEventListener('beforeunload', function(event) {
         event.stopImmediatePropagation();
     });
 </script>
