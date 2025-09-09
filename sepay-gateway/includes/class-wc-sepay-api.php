@@ -8,23 +8,28 @@ class WC_SePay_API
 {
     public function get_oauth_url()
     {
-        if (!get_transient('wc_sepay_oauth_state')) {
-            $state = wp_generate_password(32, false);
-            set_transient('wc_sepay_oauth_state', $state, 300);
-        } else {
-            $state = get_transient('wc_sepay_oauth_state');
+        $this->check_oauth_rate_limit();
+
+        $cached_oauth_url = get_transient('wc_sepay_oauth_url');
+        if ($cached_oauth_url) {
+            return $cached_oauth_url;
         }
+
+        $state = $this->get_or_create_oauth_state();
 
         $response = wp_remote_post(SEPAY_WC_API_URL . '/woo/oauth/init', [
             'body' => [
                 'redirect_uri' => $this->get_callback_url(),
                 'state' => $state,
             ],
+            'timeout' => 30,
         ]);
 
         if (is_wp_error($response)) {
             throw new Exception(esc_html($response->get_error_message()));
         }
+
+        $this->handle_oauth_rate_limit($response);
 
         $data = json_decode(wp_remote_retrieve_body($response), true);
 
@@ -32,7 +37,50 @@ class WC_SePay_API
             return null;
         }
 
+        set_transient('wc_sepay_oauth_url', $data['oauth_url'], 300);
+
         return $data['oauth_url'];
+    }
+
+    private function check_oauth_rate_limit()
+    {
+        $rate_limit_until = get_transient('wc_sepay_oauth_rate_limited');
+        if ($rate_limit_until && $rate_limit_until > time()) {
+            $remaining_time = $rate_limit_until - time();
+            throw new Exception("OAuth init rate limited. Please try again in {$remaining_time} seconds.");
+        }
+    }
+
+    private function handle_oauth_rate_limit($response)
+    {
+        $http_code = wp_remote_retrieve_response_code($response);
+        if ($http_code !== 429) {
+            return;
+        }
+
+        $retry_after = wp_remote_retrieve_header($response, 'retry-after');
+        $retry_seconds = $retry_after ? intval($retry_after) : 60;
+        $rate_limit_until = time() + $retry_seconds;
+
+        set_transient('wc_sepay_oauth_rate_limited', $rate_limit_until, $retry_seconds);
+
+        $this->log_error('OAuth init rate limited by SePay API', [
+            'retry_after' => $retry_seconds,
+            'rate_limit_until' => date('Y-m-d H:i:s', $rate_limit_until),
+            'site' => get_site_url()
+        ]);
+
+        throw new Exception("Rate limited. Please try again in {$retry_seconds} seconds.");
+    }
+
+    private function get_or_create_oauth_state()
+    {
+        $state = get_transient('wc_sepay_oauth_state');
+        if (!$state) {
+            $state = wp_generate_password(32, false);
+            set_transient('wc_sepay_oauth_state', $state, 300);
+        }
+        return $state;
     }
 
     public function get_bank_accounts($cache = true)
@@ -214,7 +262,7 @@ class WC_SePay_API
                 ]);
                 return null;
             }
-            // Thực hiện lại request chỉ một lần sau khi refresh token
+
             return $this->make_request($endpoint, $method, $data);
         }
 
@@ -224,49 +272,107 @@ class WC_SePay_API
     public function refresh_token()
     {
         $refresh_token = get_option('wc_sepay_refresh_token');
-
         if (empty($refresh_token)) {
             throw new Exception('No refresh token available');
         }
 
+        $this->check_refresh_rate_limit();
+
         $response = wp_remote_post(SEPAY_WC_API_URL . '/woo/oauth/refresh', [
-            'body' => [
-                'refresh_token' => $refresh_token,
-            ],
+            'body' => ['refresh_token' => $refresh_token],
+            'timeout' => 30,
         ]);
 
         if (is_wp_error($response)) {
             throw new Exception(esc_html($response->get_error_message()));
         }
 
-        $data = json_decode(wp_remote_retrieve_body($response), true);
+        $this->handle_refresh_rate_limit($response);
 
+        $data = json_decode(wp_remote_retrieve_body($response), true);
+        $this->validate_refresh_response($data, wp_remote_retrieve_response_code($response));
+
+        $this->update_tokens($data);
+
+        return $data['access_token'];
+    }
+
+    private function check_refresh_rate_limit()
+    {
+        $rate_limit_until = get_transient('wc_sepay_rate_limited');
+        if ($rate_limit_until && $rate_limit_until > time()) {
+            $remaining_time = $rate_limit_until - time();
+            throw new Exception("Rate limited. Please try again in {$remaining_time} seconds.");
+        }
+    }
+
+    private function handle_refresh_rate_limit($response)
+    {
+        $http_code = wp_remote_retrieve_response_code($response);
+        if ($http_code !== 429) {
+            return;
+        }
+
+        $retry_after = wp_remote_retrieve_header($response, 'retry-after');
+        $retry_seconds = $retry_after ? intval($retry_after) : 60;
+        $rate_limit_until = time() + $retry_seconds;
+
+        set_transient('wc_sepay_rate_limited', $rate_limit_until, $retry_seconds);
+
+        $this->log_error('Rate limited by SePay API', [
+            'retry_after' => $retry_seconds,
+            'rate_limit_until' => date('Y-m-d H:i:s', $rate_limit_until),
+            'site' => get_site_url(),
+        ]);
+
+        throw new Exception("Rate limited. Please try again in {$retry_seconds} seconds.");
+    }
+
+    private function validate_refresh_response($data, $http_code)
+    {
         if (empty($data['access_token'])) {
+            $this->log_error('Invalid refresh token response', [
+                'response' => $data,
+                'http_code' => $http_code,
+                'site' => get_site_url(),
+            ]);
+
+            if (isset($data['error']) && in_array($data['error'], ['invalid_grant', 'invalid_token', 'unauthorized'])) {
+                $this->log_error('Refresh token is invalid, disconnecting', [
+                    'error' => $data['error'],
+                    'site' => get_site_url(),
+                ]);
+                $this->disconnect();
+                throw new Exception('Refresh token is invalid. Please reconnect to SePay.');
+            }
+
             throw new Exception('Invalid refresh token response');
         }
+    }
 
+    private function update_tokens($data)
+    {
         $access_token = $data['access_token'];
-        if (!empty($data['refresh_token'])) {
-            $refresh_token = $data['refresh_token'];
-        }
+        $refresh_token = !empty($data['refresh_token']) ? $data['refresh_token'] : get_option('wc_sepay_refresh_token');
         $token_expires = time() + intval($data['expires_in']);
 
         update_option('wc_sepay_access_token', $access_token);
         update_option('wc_sepay_refresh_token', $refresh_token);
         update_option('wc_sepay_token_expires', $token_expires);
 
-        return $access_token;
+        delete_transient('wc_sepay_rate_limited');
     }
 
     public function get_access_token()
     {
         $access_token = get_option('wc_sepay_access_token');
-        $token_expires = (int) get_option('wc_sepay_token_expires');
-
         if (empty($access_token)) {
             throw new Exception('Not connected to SePay');
         }
 
+        $this->check_refresh_rate_limit();
+
+        $token_expires = (int) get_option('wc_sepay_token_expires');
         if ($token_expires < time() + 300) {
             $access_token = $this->refresh_token();
         }
@@ -407,14 +513,14 @@ class WC_SePay_API
             return [];
         }
 
-        if ($cache) {
-            $sub_accounts = get_transient('wc_sepay_bank_sub_accounts_' . $bank_account_id);
+        $cache_key = 'wc_sepay_bank_sub_accounts_' . $bank_account_id;
 
-            if ($sub_accounts) {
+        if ($cache) {
+            $sub_accounts = get_transient($cache_key);
+
+            if (is_array($sub_accounts)) {
                 return $sub_accounts;
             }
-        } else {
-            delete_transient('wc_sepay_bank_sub_accounts_' . $bank_account_id);
         }
 
         try {
@@ -422,7 +528,7 @@ class WC_SePay_API
             $data = $response['data'] ?? [];
 
             if ($cache) {
-                set_transient('wc_sepay_bank_sub_accounts_' . $bank_account_id, $data, 3600);
+                set_transient($cache_key, $data, 3600);
             }
 
             return $data;
@@ -474,23 +580,45 @@ class WC_SePay_API
 
     public function disconnect()
     {
-        $settings = get_option('woocommerce_sepay_settings');
+        $this->update_settings_with_webhook_key();
 
+        $this->clear_oauth_data();
+        $this->clear_cache_data();
+    }
+
+    private function update_settings_with_webhook_key()
+    {
+        $settings = get_option('woocommerce_sepay_settings');
         if ($settings) {
             $settings['api_key'] = get_option('wc_sepay_webhook_api_key');
             update_option('woocommerce_sepay_settings', $settings);
         }
+    }
 
+    private function clear_oauth_data()
+    {
         delete_option('wc_sepay_access_token');
         delete_option('wc_sepay_refresh_token');
         delete_option('wc_sepay_token_expires');
         delete_option('wc_sepay_webhook_id');
         delete_option('wc_sepay_webhook_api_key');
         delete_option('wc_sepay_last_connected_at');
-	delete_transient('wc_sepay_bank_accounts');
-	delete_transient('wc_sepay_user_info');
-        delete_transient('wc_sepay_company');
-        delete_transient('wc_sepay_bank_sub_accounts');
+    }
+
+    private function clear_cache_data()
+    {
+        $transients = [
+            'wc_sepay_bank_accounts',
+            'wc_sepay_user_info',
+            'wc_sepay_company',
+            'wc_sepay_bank_sub_accounts',
+            'wc_sepay_rate_limited',
+            'wc_sepay_oauth_rate_limited',
+        ];
+
+        foreach ($transients as $transient) {
+            delete_transient($transient);
+        }
     }
 
     public function is_required_sub_account($bank_account_id, $bank_accounts = null)

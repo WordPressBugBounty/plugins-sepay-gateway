@@ -54,7 +54,12 @@ if (!defined('ABSPATH')) {
         <div class="wc-sepay-content">
             <h2>Bắt đầu với SePay</h2>
             <p>Để bắt đầu với SePay, bạn cần kết nối tài khoản SePay của mình với cửa hàng WooCommerce.</p>
-            <a href="<?php echo esc_html($sepayOauthUrl) ?>" class="components-button is-primary">Kết nối tài khoản</a>
+            <?php if ($sepayOauthUrl): ?>
+                <a href="<?php echo esc_url($sepayOauthUrl) ?>" class="components-button is-primary">Kết nối tài khoản</a>
+            <?php else: ?>
+                <p style="color: #d63638; font-weight: bold;">Không thể kết nối tới SePay. Vui lòng thử lại sau.</p>
+                <button onclick="window.location.reload()" class="components-button is-secondary">Thử lại</button>
+            <?php endif; ?>
         </div>
     </div>
 </div>

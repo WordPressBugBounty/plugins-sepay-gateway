@@ -5,7 +5,7 @@
  * Description: SePay - Giải pháp tự động xác nhận thanh toán chuyển khoản ngân hàng
  * Author: SePay Team
  * Author URI: https://sepay.vn/
- * Version: 1.1.18
+ * Version: 1.1.19
  * Requires Plugins: woocommerce
  * Text Domain: sepay-gateway
  * License: GNU General Public License v3.0
@@ -169,7 +169,7 @@ function sepay_init_gateway_class()
         $settings['enabled'] = 'yes';
         $settings['bank_account'] = $bank_account_id;
         $settings['sub_account'] = $sub_account;
-        
+
         $settings['title'] = 'SePay';
         $settings['description'] = 'Thanh toán qua chuyển khoản ngân hàng với QR Code (VietQR). Tự động xác nhận thanh toán qua <a href="https://sepay.vn" target="_blank">SePay</a>.';
         $settings['logo'] = plugin_dir_url(__FILE__) . 'assets/images/sepay-logo.png';
@@ -353,7 +353,7 @@ function sepay_init_gateway_class()
 
             wc_reduce_stock_levels($s_order_id);
             $order_note = sprintf(
-                '%s. Trạng thái đơn hàng được chuyển từ %s sang %s', 
+                '%s. Trạng thái đơn hàng được chuyển từ %s sang %s',
                 $order_note,
                 wc_get_order_status_name($order_status),
                 wc_get_order_status_name($order_status_when_completed)
@@ -407,7 +407,7 @@ function get_paycode_prefix_ajax()
     wp_send_json_success($prefixes);
 }
 
-function get_bank_sub_accounts_ajax() 
+function get_bank_sub_accounts_ajax()
 {
     if (!current_user_can('manage_options')) {
         wp_send_json_error(['message' => 'Bạn không có quyền thực hiện hành động này.']);
@@ -420,7 +420,7 @@ function get_bank_sub_accounts_ajax()
     }
 
     $api = new WC_SePay_API();
-    $sub_accounts = $api->get_bank_sub_accounts($bank_account_id, false);
+    $sub_accounts = $api->get_bank_sub_accounts($bank_account_id);
 
     if (empty($sub_accounts)) {
         wp_send_json_error(['message' => 'Không tìm thấy tài khoản ảo.']);
@@ -497,7 +497,8 @@ function sepay_redirect()
 
 add_action('upgrader_process_complete', 'sepay_clear_cache_after_update', 10, 2);
 
-function sepay_clear_cache_after_update($upgrader_object, $options) {
+function sepay_clear_cache_after_update($upgrader_object, $options)
+{
     if ($options['action'] === 'update' && $options['type'] === 'plugin') {
         foreach ($options['plugins'] as $plugin) {
             if (plugin_basename(__FILE__) === $plugin) {

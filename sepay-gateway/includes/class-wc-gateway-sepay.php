@@ -66,9 +66,8 @@ class WC_Gateway_SePay extends WC_Payment_Gateway
                 $this->displayed_bank_name = $bank_brand_name;
 
             $this->method_description .= '<br><div id="content-render">URL API của bạn là: <span id="site_url">Đang tải url ...</span></div>';
-	} elseif ($this->cached_bank_account_data) {
+        } elseif ($this->cached_bank_account_data) {
             $this->displayed_bank_name = $this->get_display_bank_name($this->cached_bank_account_data['bank']);
-
         }
 
         add_action('admin_init', [$this, 'lazy_load_bank_data']);
@@ -804,6 +803,10 @@ class WC_Gateway_SePay extends WC_Payment_Gateway
         update_option('wc_sepay_token_expires', time() + $expires_in);
         update_option('wc_sepay_last_connected_at', current_time('mysql'));
 
+        delete_transient('wc_sepay_rate_limited');
+        delete_transient('wc_sepay_refresh_failure');
+        delete_transient('wc_sepay_oauth_url');
+        delete_transient('wc_sepay_oauth_rate_limited');
         delete_transient('wc_sepay_oauth_state');
 
         wp_redirect(admin_url('admin.php?page=wc-settings&tab=checkout&section=sepay'));
@@ -870,7 +873,12 @@ class WC_Gateway_SePay extends WC_Payment_Gateway
         global $hide_save_button;
         $hide_save_button = true;
 
-        $sepayOauthUrl = $this->api->get_oauth_url();
+        try {
+            $sepayOauthUrl = $this->api->get_oauth_url();
+        } catch (Exception $e) {
+            $sepayOauthUrl = null;
+        }
+
         $sepayLogoUrl = plugin_dir_url(__DIR__) . 'assets/images/banner.png';
         require_once plugin_dir_path(__FILE__) . 'views/connect-account.php';
     }
@@ -891,7 +899,7 @@ class WC_Gateway_SePay extends WC_Payment_Gateway
         $reconnect_url = wp_nonce_url(
             add_query_arg('reconnect', '1', admin_url('admin.php?page=wc-settings&tab=checkout&section=sepay')),
             'sepay_reconnect'
-    );
+        );
         $disconnect_url = wp_nonce_url(
             add_query_arg('disconnect', '1', admin_url('admin.php?page=wc-settings&tab=checkout&section=sepay')),
             'sepay_disconnect'
