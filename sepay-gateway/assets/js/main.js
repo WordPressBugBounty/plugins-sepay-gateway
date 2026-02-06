@@ -73,7 +73,7 @@ jQuery(document).ready(function () {
               } else if (requiresSubAccount) {
                 subAccountContainer.show();
                 subAccountList.append(
-                  `Vui lòng thêm tài khoản VA cho tài khoản ngân hàng ${bankShortName} trên trang quản lý <a href="https://my.sepay.vn/bankaccount/details/${selectedAccountId}" target="_blank">tài khoản ngân hàng của SePay</a> trước khi tiếp tục.`
+                  `Vui lòng thêm tài khoản VA cho tài khoản ngân hàng ${bankShortName} trên trang quản lý <a href="https://my.sepay.vn/bankaccount/details/${selectedAccountId}" target="_blank">tài khoản ngân hàng của SePay</a> trước khi tiếp tục.`,
                 );
               }
             },
@@ -82,7 +82,7 @@ jQuery(document).ready(function () {
               if (requiresSubAccount) {
                 subAccountContainer.show();
                 subAccountList.append(
-                  "<p>Đã xảy ra lỗi khi tải tài khoản ảo. Vui lòng thử lại.</p>"
+                  "<p>Đã xảy ra lỗi khi tải tài khoản ảo. Vui lòng thử lại.</p>",
                 );
               }
             },
@@ -91,7 +91,7 @@ jQuery(document).ready(function () {
       } else {
         submitButton.prop("disabled", false);
       }
-    }
+    },
   );
 
   jQuery(".wc-sepay-sub-account-list").on(
@@ -99,7 +99,7 @@ jQuery(document).ready(function () {
     'input[name="sub_account"]',
     function () {
       jQuery(".button-primary").prop("disabled", false);
-    }
+    },
   );
 
   jQuery("#complete-setup").on("click", function (e) {
@@ -108,7 +108,7 @@ jQuery(document).ready(function () {
     const selectBankAccountEl = jQuery('input[name="bank_account_id"]:checked');
     const selectedBankAccount = selectBankAccountEl.val();
     const selectedSubAccount = jQuery(
-      'input[name="sub_account"]:checked'
+      'input[name="sub_account"]:checked',
     ).val();
     const submitButton = jQuery(this);
 
@@ -154,8 +154,6 @@ jQuery(document).ready(function () {
 
     isFetchingBankAccounts = true;
 
-    const oldVal = bankAccountField.val();
-
     jQuery.ajax({
       url: ajaxurl,
       method: "POST",
@@ -163,6 +161,10 @@ jQuery(document).ready(function () {
         action: "sepay_get_bank_accounts",
       },
       success: function (response) {
+        // Capture current value right before replacing HTML
+        // This preserves any selection the user made while waiting
+        const currentVal = bankAccountField.val();
+
         let options = [];
         options.push('<option value="">-- Chọn tài khoản ảo --</option>');
         if (response.success && response.data.length > 0) {
@@ -172,7 +174,7 @@ jQuery(document).ready(function () {
         }
 
         bankAccountField.html(options.join(""));
-        bankAccountField.val(oldVal);
+        bankAccountField.val(currentVal);
       },
       complete: function () {
         isFetchingBankAccounts = false;
@@ -185,8 +187,6 @@ jQuery(document).ready(function () {
 
     isFetchingPayCodePrefixes = true;
 
-    const oldVal = payCodePrefixField.val();
-
     jQuery.ajax({
       url: ajaxurl,
       method: "POST",
@@ -195,12 +195,15 @@ jQuery(document).ready(function () {
       },
       success: function (response) {
         if (response.success && response.data.length > 0) {
+          // Capture current value right before replacing HTML
+          const currentVal = payCodePrefixField.val();
+
           const options = response.data.map(function (payCodePrefix) {
             return `<option value="${payCodePrefix.prefix}">${payCodePrefix.prefix}</option>`;
           });
 
           payCodePrefixField.html(options.join(""));
-          payCodePrefixField.val(oldVal);
+          payCodePrefixField.val(currentVal);
         }
       },
       complete: function () {
@@ -223,7 +226,7 @@ jQuery(document).ready(function () {
 
     if (!selectedBankAccountId) {
       subAccountField.html(
-        '<option value="">Vui lòng chọn tài khoản ngân hàng trước</option>'
+        '<option value="">Vui lòng chọn tài khoản ngân hàng trước</option>',
       );
       subAccountField.prop("disabled", true);
       return;
@@ -236,7 +239,7 @@ jQuery(document).ready(function () {
       subAccountField.html(
         '<option value="">Ngân hàng ' +
           bankName +
-          " không hỗ trợ tài khoản VA</option>"
+          " không hỗ trợ tài khoản VA</option>",
       );
       subAccountField.prop("disabled", true);
       return;
@@ -261,7 +264,7 @@ jQuery(document).ready(function () {
               options.push(
                 `<option value="${subAccount.account_number}">${
                   subAccount.account_number
-                }${subAccount.label ? ` - ${subAccount.label}` : ""}</option>`
+                }${subAccount.label ? ` - ${subAccount.label}` : ""}</option>`,
               );
             });
           } else {
@@ -284,7 +287,7 @@ jQuery(document).ready(function () {
         },
         error: function () {
           subAccountField.html(
-            '<option value="">Lỗi khi tải tài khoản ảo. Vui lòng thử lại.</option>'
+            '<option value="">Lỗi khi tải tài khoản ảo. Vui lòng thử lại.</option>',
           );
         },
       });
@@ -298,7 +301,7 @@ jQuery(document).ready(function () {
       {
         scrollTop: checkedBankAccount.offset().top - 100,
       },
-      500
+      500,
     );
   }
 
@@ -338,17 +341,17 @@ jQuery(document).ready(function () {
         .parent()
         .find(".help-text")
         .html(
-          "Vui lòng điền chính xác <strong>số VA</strong> để nhận được biến động giao dịch."
+          "Vui lòng điền chính xác <strong>số VA</strong> để nhận được biến động giao dịch.",
         );
     } else {
       jQuery("label[for=woocommerce_sepay_bank_account_number]").html(
-        "Số tài khoản"
+        "Số tài khoản",
       );
       jQuery("input[name=woocommerce_sepay_bank_account_number]")
         .parent()
         .find(".help-text")
         .html(
-          "Vui lòng điền chính xác <strong>số tài khoản ngân hàng</strong> để nhận được biến động giao dịch."
+          "Vui lòng điền chính xác <strong>số tài khoản ngân hàng</strong> để nhận được biến động giao dịch.",
         );
     }
   }
@@ -374,7 +377,7 @@ jQuery(document).ready(function () {
       error: function (xhr, status, error) {
         // console.error("Exception:", error);
         jQuery("#site_url").html(
-          base_url + "/?rest_route=/sepay-gateway/v1/add-payment"
+          base_url + "/?rest_route=/sepay-gateway/v1/add-payment",
         );
       },
     });
@@ -383,7 +386,7 @@ jQuery(document).ready(function () {
     jQuery("input[name=woocommerce_sepay_bank_account_number]")
       .parent()
       .append(
-        '<div class="help-text" style="box-sizing: border-box; color: #856404; background-color: #fff3cd; border-color: #ffeeba; padding: .75rem 1.25rem; border-radius: .25rem; border: 1px solid transparent; margin-top: 0.5rem; max-width: 400px;"></div>'
+        '<div class="help-text" style="box-sizing: border-box; color: #856404; background-color: #fff3cd; border-color: #ffeeba; padding: .75rem 1.25rem; border-radius: .25rem; border: 1px solid transparent; margin-top: 0.5rem; max-width: 400px;"></div>',
       );
     update_account_number_field_ui();
 

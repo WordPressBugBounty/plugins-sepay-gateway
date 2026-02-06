@@ -5,7 +5,7 @@
  * Description: SePay - Giải pháp tự động xác nhận thanh toán chuyển khoản ngân hàng
  * Author: SePay Team
  * Author URI: https://sepay.vn/
- * Version: 1.1.19
+ * Version: 1.1.20
  * Requires Plugins: woocommerce
  * Text Domain: sepay-gateway
  * License: GNU General Public License v3.0
@@ -159,12 +159,12 @@ function sepay_init_gateway_class()
                 if (is_wp_error($response)) {
                     wp_send_json_error(['message' => 'Có lỗi xảy ra khi cập nhật mã thanh toán.']);
                 }
-
-                $settings['pay_code_prefix'] = $pay_code_prefix['prefix'];
             } catch (Exception $e) {
                 wp_send_json_error(['message' => 'Có lỗi xảy ra khi cập nhật mã thanh toán.']);
             }
         }
+
+        $settings['pay_code_prefix'] = $pay_code_prefix['prefix'];
 
         $settings['enabled'] = 'yes';
         $settings['bank_account'] = $bank_account_id;

@@ -508,7 +508,6 @@
 }
 
 .sepay-pay-info .manual-box .bank-info .bank-info-value a:after {
-    content: "Sao chép";
     display: inline;
 }
 
@@ -524,10 +523,6 @@
 .sepay-pay-info .manual-box .bank-info .bank-info-value a.copied {
     background-color: rgba(46, 153, 101, 0.15);
     color: #2E9965;
-}
-
-.sepay-pay-info .manual-box .bank-info .bank-info-value a.copied:after {
-    content: "Đã sao chép";
 }
 
 .sepay-pay-info .manual-box .bank-info .bank-info-value a.copied svg path {
